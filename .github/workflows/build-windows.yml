@@ -1,0 +1,52 @@
+name: Build Windows SRTLA Sender
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - "src/**"
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - ".github/workflows/build-windows.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  build-windows:
+    name: Windows x64
+    runs-on: windows-latest
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Install Rust nightly
+        uses: dtolnay/rust-toolchain@nightly
+
+      - name: Build release executable
+        run: cargo +nightly build --release --locked
+
+      - name: Verify executable
+        run: .\target\release\srtla_send.exe --version
+
+      - name: Package executable
+        shell: powershell
+        run: |
+          New-Item -ItemType Directory -Force -Path package | Out-Null
+          Copy-Item target\release\srtla_send.exe package\srtla_send.exe
+          Copy-Item LICENSE package\LICENSE.txt
+          Compress-Archive -Path package\* -DestinationPath srtla_send-windows-x64.zip
+
+      - name: Upload Windows build
+        uses: actions/upload-artifact@v4
+        with:
+          name: srtla_send-windows-x64
+          path: |
+            package/srtla_send.exe
+            package/LICENSE.txt
+            srtla_send-windows-x64.zip
+          if-no-files-found: error
+          retention-days: 30
